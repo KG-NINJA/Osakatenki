@@ -1,5 +1,6 @@
 # weather_osaka_beautiful.py ← こっちにリネームして使え
 
+import argparse
 import datetime
 import math
 import os
@@ -96,56 +97,91 @@ def synthesize_osaka_forecast(start: datetime.datetime, hours: int = 24) -> List
     return forecast
 
 
-def get_weather():
-    now = datetime.datetime.now()
-    generated_at = now.strftime("%Y年%m月%d日 %H:%M更新")
-    forecast = synthesize_osaka_forecast(now, hours=24)
-
+def render_forecast_html(generated_at: str, forecast: List[Tuple[str, float, int, int]], title: str, subtitle: str) -> str:
     rows = ""
     for time, temp, code, p in forecast:
         time_jp = time[11:16]  # 時:分だけ
         emoji = weather_emoji(code)
         rows += f"<tr><td>{time_jp}</td><td>{emoji} {temp}°C</td><td>降水{p}%</td></tr>"
 
-    html = f"""
-    <html>
+    return f"""
+    <html lang=\"ja\">
     <head>
-        <meta charset="UTF-8">
-        <title>大阪リアルタイム天気</title>
+        <meta charset=\"UTF-8\">
+        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+        <title>{title}</title>
         <style>
-            body {{ font-family: "Helvetica Neue", sans-serif; text-align:center; background:#f0f8ff; padding:20px; }}
-            h1 {{ color:#ff6b6b; }}
-            table {{ margin:20px auto; border-collapse:collapse; }}
-            td, th {{ padding:12px 20px; border:1px solid #ccc; }}
-            th {{ background:#ff8787; color:white; }}
-            footer {{ margin-top: 18px; color: #666; font-size: 14px; }}
+            body {{ font-family: \"Helvetica Neue\", \"Noto Sans JP\", sans-serif; text-align:center; background:#f7fbff; padding:20px; }}
+            h1 {{ color:#ff6b6b; margin-bottom: 4px; }}
+            h2 {{ color:#444; margin-top: 4px; font-size: 18px; font-weight: 500; }}
+            table {{ margin:20px auto; border-collapse:collapse; max-width: 520px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }}
+            td, th {{ padding:12px 16px; border:1px solid #e5e7eb; font-size: 15px; }}
+            th {{ background:#ff8787; color:white; letter-spacing: 0.08em; }}
+            tr:nth-child(even) td {{ background: #fff7f7; }}
+            footer {{ margin-top: 22px; color: #555; font-size: 14px; line-height: 1.6; }}
+            .pill {{ display:inline-block; background:#fff0f0; color:#ff6b6b; padding:6px 10px; border-radius: 999px; font-size: 12px; margin-top: 8px; }}
+            .updated {{ color: #111; font-weight: 600; margin-top: 8px; }}
         </style>
     </head>
     <body>
     <h1>大阪 天気予報</h1>
-    <p>更新: {generated_at}</p>
+    <h2>{subtitle}</h2>
+    <div class=\"updated\">更新: {generated_at}</div>
+    <div class=\"pill\">ネット未使用 / 再現性あり</div>
     <table>
       <tr><th>時間</th><th>天気・気温</th><th>降水確率</th></tr>
       {rows}
     </table>
     <footer>
-      <div>モデル: 季節性 + 日内変動 + ランダム擾乱 (ネット未使用)</div>
-      <div>同じ日付では同じ予報を再現できます。毎日このスクリプトを実行して最新を生成してください。</div>
+      <div>モデル: 季節性 + 日内変動 + ランダム擾乱 (オフライン)</div>
+      <div>GitHub Actions で毎日生成し、GitHub Pages にデプロイする構成です。</div>
+      <div>同じ日付では同じ予報を再現できます。日付を変えて再実行すると日々の更新が可能です。</div>
     </footer>
     </body>
     </html>
     """
 
-    base = os.path.dirname(os.path.abspath(__file__))
-    data_dir = os.path.join(base, "data")
-    os.makedirs(data_dir, exist_ok=True)
 
-    path = os.path.join(data_dir, "forecast.html")
-    with open(path, "w", encoding="utf-8") as f:
+def build_forecast(now: datetime.datetime, hours: int = 24):
+    generated_at = now.strftime("%Y年%m月%d日 %H:%M更新")
+    forecast = synthesize_osaka_forecast(now, hours=hours)
+    return generated_at, forecast
+
+
+def write_forecast_html(output_path: str, html: str):
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(html)
+    print(f"GitHub Pages 用に予報を書き出しました: {output_path}")
 
-    print(f"ローカル予報を出力 → {path}")
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="大阪向けのオフライン天気予報を生成し、静的HTMLを出力します")
+    parser.add_argument("--output", default=os.path.join("data", "forecast.html"), help="出力するHTMLファイルパス (例: site/index.html)")
+    parser.add_argument("--hours", type=int, default=24, help="予報時間 (時間単位)")
+    parser.add_argument("--date", help="予報開始日 (YYYY-MM-DD)。指定しない場合は現在時刻")
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    if args.date:
+        try:
+            base_time = datetime.datetime.strptime(args.date, "%Y-%m-%d")
+        except ValueError:
+            raise SystemExit("--date は YYYY-MM-DD 形式で指定してください")
+    else:
+        base_time = datetime.datetime.now()
+
+    generated_at, forecast = build_forecast(base_time, hours=args.hours)
+    html = render_forecast_html(
+        generated_at,
+        forecast,
+        title="大阪 天気予報 (GitHub Pages 用)",
+        subtitle="オフライン生成 / 季節性・日内変動モデリング",
+    )
+    write_forecast_html(args.output, html)
 
 
 if __name__ == "__main__":
-    get_weather()
+    main()
