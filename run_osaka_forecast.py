@@ -28,8 +28,11 @@ def get_weather():
     </html>
     """
 
-    os.makedirs("data", exist_ok=True)
-    with open("data/forecast.html", "w", encoding="utf-8") as f:
+    BASE = os.path.dirname(os.path.abspath(__file__))
+    DATA_DIR = os.path.join(BASE, "data")
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    with open(os.path.join(DATA_DIR, "forecast.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
 if __name__ == "__main__":
