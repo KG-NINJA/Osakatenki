@@ -1,9 +1,3 @@
-diff --git a/.gitignore b/.gitignore
-new file mode 100644
-index 0000000000000000000000000000000000000000..16c7014157b9d6bbdc230b66921083f6f29b6bdb
---- /dev/null
-+++ b/.gitignore
-@@ -0,0 +1,5 @@
 +data/
 +weather_models/
 +__pycache__/
