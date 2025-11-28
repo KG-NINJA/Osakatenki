@@ -1,0 +1,35 @@
+name: Daily Weather Forecast & Accuracy
+
+on:
+  schedule:
+    - cron: "0 0 * * *"   # JST 9:00
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+
+    - name: Generate forecast
+      run: |
+        python weather_osaka_beautiful.py
+
+    - name: Compare with actual weather
+      run: |
+        pip install numpy requests
+        python compare.py
+
+    - name: Commit results
+      run: |
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git add .
+        git commit -m "Daily forecast & accuracy update" || echo "nothing to commit"
+        git push
